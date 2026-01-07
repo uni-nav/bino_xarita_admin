@@ -1,0 +1,32 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    environment:
+      POSTGRES_USER: baxrom
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: university_nav
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+      - ./uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://baxrom:root@db:5432/university_nav
+      SECRET_KEY: your-secret-key-change-in-production
+      UPLOAD_DIR: /app/uploads
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
