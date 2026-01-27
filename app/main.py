@@ -10,12 +10,12 @@ from app.core.config import settings
 
 app = FastAPI(title="University Navigation API", version="1.0.0")
 
-# CORS
+# CORS - configured origins only (no wildcard)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins_list,  # ✅ Specific origins only
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["*"],
 )
 

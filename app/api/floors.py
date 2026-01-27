@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models.floor import Floor
 from app.schemas.floor import Floor as FloorSchema, FloorCreate, FloorUpdate
 from app.core.config import settings
+from app.core.auth import verify_admin_token  # ✅ Admin auth
 
 router = APIRouter()
 
@@ -50,8 +51,12 @@ def update_floor(floor_id: int, floor: FloorUpdate, db: Session = Depends(get_db
     return db_floor
 
 @router.delete("/{floor_id}")
-def delete_floor(floor_id: int, db: Session = Depends(get_db)):
-    """Qavatni o'chirish"""
+def delete_floor(
+    floor_id: int,
+    db: Session = Depends(get_db),
+    _token: str = Depends(verify_admin_token)  # ✅ Admin authentication required
+):
+    """Qavatni o'chirish (Admin only)"""
     db_floor = db.query(Floor).filter(Floor.id == floor_id).first()
     if not db_floor:
         raise HTTPException(status_code=404, detail="Floor not found")

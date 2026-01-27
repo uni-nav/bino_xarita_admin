@@ -25,3 +25,4 @@ alembic/versions/__pycache__/
 app/**/__pycache__/
 *.log
 *.db
+.env
