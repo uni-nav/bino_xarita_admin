@@ -1,40 +1,69 @@
+# docker-compose.prod.yml - Production Configuration
 version: '3.8'
 
 services:
-  api:
-    build: .
-    command: gunicorn -c gunicorn_conf.py app.main:app
-    volumes:
-      - ./uploads:/app/uploads
-      - ./.env:/app/.env
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    environment:
-      - UPLOAD_DIR=uploads
-    depends_on:
-      - db
-    restart: always
-    networks:
-      - app_network
-
   db:
     image: postgis/postgis:15-3.3
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=baxrom
-      - POSTGRES_PASSWORD=root
-      - POSTGRES_DB=university_nav
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
+    restart: always
+    networks:
+      - app_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER}" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  api:
+    build: .
+    command: gunicorn -c gunicorn_conf.py app.main:app
+    volumes:
+      - ./uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    networks:
+      - app_network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ../frontend_version2
+      target: prod
+      args:
+        VITE_API_URL: ${FRONTEND_API_URL:-http://localhost:8000}
+        VITE_APP_NAME: ${FRONTEND_APP_NAME:-Universitet Navigatsiya Tizimi}
+        VITE_ENV: ${FRONTEND_ENV:-production}
+        VITE_ENABLE_DEBUG: ${FRONTEND_ENABLE_DEBUG:-false}
+        VITE_STORAGE_KEY: ${FRONTEND_STORAGE_KEY:-change-this-to-random-string-in-production}
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - api
     restart: always
     networks:
       - app_network
 
 volumes:
   postgres_data:
+
 
 networks:
   app_network:

@@ -1,5 +1,5 @@
 # app/schemas/kiosk.py
-from pydantic import BaseModel, conint
+from pydantic import BaseModel, ConfigDict, conint
 from typing import Optional
 
 PositiveInt = conint(gt=0)
@@ -26,5 +26,4 @@ class KioskUpdate(BaseModel):
 class Kiosk(KioskBase):
     id: PositiveInt
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

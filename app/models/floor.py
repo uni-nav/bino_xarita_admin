@@ -1,6 +1,7 @@
 
 # app/models/floor.py
 from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -14,7 +15,7 @@ class Floor(Base):
     image_url = Column(String(255), nullable=True)
     image_width = Column(Integer, nullable=True)
     image_height = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     waypoints = relationship("Waypoint",       
                 foreign_keys="[Waypoint.floor_id]",

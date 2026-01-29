@@ -57,7 +57,7 @@ def create_kiosk(
         waypoint = _get_waypoint_or_404(db, kiosk.waypoint_id)
         _validate_floor_waypoint_match(kiosk.floor_id, waypoint)
 
-    db_kiosk = Kiosk(**kiosk.dict())
+    db_kiosk = Kiosk(**kiosk.model_dump())
     db.add(db_kiosk)
     db.commit()
     db.refresh(db_kiosk)
@@ -68,7 +68,6 @@ def create_kiosk(
 def update_kiosk(
     kiosk: KioskUpdate,
     kiosk_id: int = Path(..., gt=0),
-    kiosk_id: int = Path(..., gt=0),
     db: Session = Depends(get_db),
     _token: str = Depends(verify_admin_token)
 ):
@@ -76,7 +75,7 @@ def update_kiosk(
     if not db_kiosk:
         raise HTTPException(status_code=404, detail="Kiosk not found")
 
-    update_data = kiosk.dict(exclude_unset=True)
+    update_data = kiosk.model_dump(exclude_unset=True)
     if "floor_id" in update_data and update_data["floor_id"] is not None:
         _get_floor_or_404(db, update_data["floor_id"])
 

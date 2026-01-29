@@ -1,5 +1,4 @@
 .DS_Store
-.env
 __pycache__/
 *.pyc
 *.pyo
@@ -25,4 +24,24 @@ alembic/versions/__pycache__/
 app/**/__pycache__/
 *.log
 *.db
+
+# Environment files
 .env
+.env.local
+.env.*.local
+
+# Frontend
+node_modules/
+*.tsbuildinfo
+dist/
+build/
+
+# IDE/editor
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+
+# Keep example env files
+!.env.example

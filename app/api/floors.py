@@ -34,7 +34,7 @@ def create_floor(
     _token: str = Depends(verify_admin_token)
 ):
     """Yangi qavat yaratish"""
-    db_floor = Floor(**floor.dict())
+    db_floor = Floor(**floor.model_dump())
     db.add(db_floor)
     db.commit()
     db.refresh(db_floor)
@@ -52,7 +52,7 @@ def update_floor(
     if not db_floor:
         raise HTTPException(status_code=404, detail="Floor not found")
     
-    for key, value in floor.dict(exclude_unset=True).items():
+    for key, value in floor.model_dump(exclude_unset=True).items():
         setattr(db_floor, key, value)
     
     db.commit()
@@ -83,7 +83,6 @@ def delete_floor(
     return {"message": "Floor deleted successfully"}
 
 @router.post("/{floor_id}/upload-image")
-@router.post("/{floor_id}/upload-image")
 async def upload_floor_image(
     floor_id: int,
     file: UploadFile = File(...),
@@ -98,6 +97,20 @@ async def upload_floor_image(
     # Fayl formatini tekshirish
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
+
+    # Fayl hajmini tekshirish (MB)
+    max_bytes = settings.MAX_UPLOAD_MB * 1024 * 1024
+    try:
+        file.file.seek(0, os.SEEK_END)
+        size = file.file.tell()
+        file.file.seek(0)
+    except Exception:
+        size = 0
+    if size > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image too large. Max {settings.MAX_UPLOAD_MB} MB",
+        )
     
     original_filename = file.filename or "image.jpg"
 

@@ -1,17 +1,22 @@
-# docker-compose.yml
+# docker-compose.yml - Development Configuration
 version: '3.8'
 
 services:
   db:
     image: postgis/postgis:15-3.3
     environment:
-      POSTGRES_USER: baxrom
-      POSTGRES_PASSWORD: root
-      POSTGRES_DB: university_nav
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-university_nav}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build: .
@@ -21,12 +26,32 @@ services:
       - ./uploads:/app/uploads
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://baxrom:root@db:5432/university_nav
-      SECRET_KEY: your-secret-key-change-in-production
-      UPLOAD_DIR: /app/uploads
+    env_file:
+      - .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend_version2
+      target: dev
+    command: npm run dev -- --host 0.0.0.0 --port 8080
+    environment:
+      VITE_API_URL: ${FRONTEND_API_URL:-http://localhost:8000}
+      VITE_APP_NAME: ${FRONTEND_APP_NAME:-Universitet Navigatsiya Tizimi}
+      VITE_ENV: ${FRONTEND_ENV:-development}
+      VITE_ENABLE_DEBUG: ${FRONTEND_ENABLE_DEBUG:-true}
+      CHOKIDAR_USEPOLLING: ${FRONTEND_USE_POLLING:-false}
+    volumes:
+      - ../frontend_version2:/app
+      - /app/node_modules
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+    restart: unless-stopped
 
 volumes:
   postgres_data:

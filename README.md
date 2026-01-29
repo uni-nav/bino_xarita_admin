@@ -33,13 +33,33 @@ createdb university_nav
 
 # 6. .env faylni yarating va sozlang
 cp .env.example .env
-# .env faylini tahrirlang
+# .env faylini tahrirlang va quyidagilarni qo'shing:
+
+# 6.1. JWT Secret Key yarating
+python3 -c "import secrets; print('JWT_SECRET_KEY=' + secrets.token_urlsafe(32))" >> .env
+
+# 6.2. Admin user yarating (xavfsiz parol bilan)
+python3 scripts/create_admin.py
+# Yoki .env ga qo'lda qo'shing:
+# ADMIN_USERNAME=admin
+# ADMIN_PASSWORD_HASH="<bcrypt_hash>"
 
 # 7. Database migration
 alembic upgrade head
 
 # 8. Serverni ishga tushiring
 uvicorn app.main:app --reload
+```
+
+### ⚠️ Xavfsizlik Ogohlantirishi
+
+**Production uchun MAJBURIY:**
+- [x] `JWT_SECRET_KEY` ni yarating (32+ belgi)
+- [x] `ADMIN_PASSWORD_HASH` ni o'rnating (`scripts/create_admin.py` orqali)
+- [ ] `SECRET_KEY` ni o'zgartiring
+- [ ] `ALLOWED_ORIGINS` ni cheklang (faqat ishonchli domenlar)
+- [ ] `ENV=production` qilib o'rnating
+
 ```
 
 ### 3. Docker bilan ishga tushirish (Tavsiya etiladi)

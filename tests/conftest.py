@@ -7,8 +7,11 @@ from sqlalchemy.orm import sessionmaker
 
 # Ensure required settings exist before importing app
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
-os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-must-be-at-least-32-chars-long")
+os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-key-must-be-at-least-32-chars-long")
 os.environ.setdefault("UPLOAD_DIR", "uploads")
+os.environ.setdefault("ADMIN_TOKEN", "test-token")
 
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
@@ -53,3 +56,8 @@ def clean_db():
 def client():
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture()
+def auth_headers():
+    return {"Authorization": f"Bearer {os.environ['ADMIN_TOKEN']}"}

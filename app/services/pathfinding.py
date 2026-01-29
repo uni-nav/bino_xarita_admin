@@ -59,6 +59,9 @@ class PathFinder:
                     # Qavat o'tish - qo'shimcha vaqt/masofa
                     floor_change_cost = 50 if wp.type == WaypointType.STAIRS else 30
                     self.graph[wp.id].append((wp.connects_to_waypoint, floor_change_cost))
+                    # Legacy linklarni ham ikki tomonlama deb hisoblaymiz
+                    if wp.connects_to_waypoint in self.graph:
+                        self.graph[wp.connects_to_waypoint].append((wp.id, floor_change_cost))
     
     def heuristic(self, wp1_id: str, wp2_id: str) -> float:
         """Heuristic funksiya - Euclidean distance + qavat o'zgarishi"""
@@ -173,34 +176,59 @@ class PathFinder:
         for i, step in enumerate(path):
             if i == 0:
                 step['instruction'] = "Boshlanish nuqtasi"
-            elif i == len(path) - 1:
+                continue
+            if i == len(path) - 1:
                 step['instruction'] = "Maqsadga yetdingiz"
-            else:
-                prev_step = path[i-1]
-                next_step = path[i+1]
-                
-                # Qavat o'zgarishini aniqlash
-                if step['floor_id'] != prev_step['floor_id']:
-                    if step['type'] == 'stairs':
-                        direction = "yuqoriga" if step['floor_id'] > prev_step['floor_id'] else "pastga"
-                        step['instruction'] = f"Zina orqali {direction} chiqing"
-                    elif step['type'] == 'elevator':
-                        step['instruction'] = f"Liftda {step['floor_id']}-qavatga chiqing"
+                continue
+
+            prev_step = path[i-1]
+            next_step = path[i+1]
+
+            # Qavat o'zgarishi: zinaga/liftga yetganda oldindan ko'rsatma berish
+            if step['type'] in ['stairs', 'elevator'] and next_step['floor_id'] != step['floor_id']:
+                direction = "yuqoriga" if next_step['floor_id'] > step['floor_id'] else "pastga"
+                if step['type'] == 'stairs':
+                    step['instruction'] = f"Zina orqali {direction} chiqing"
                 else:
-                    # Yo'nalishni hisoblash
-                    angle1 = math.atan2(step['y'] - prev_step['y'], step['x'] - prev_step['x'])
-                    angle2 = math.atan2(next_step['y'] - step['y'], next_step['x'] - step['x'])
-                    angle_diff = math.degrees(angle2 - angle1) % 360
-                    
-                    if angle_diff < 45 or angle_diff > 315:
-                        step['instruction'] = "To'g'ri davom eting"
-                    elif 45 <= angle_diff < 135:
-                        step['instruction'] = "Chapga buriling"
-                    elif 225 < angle_diff <= 315:
-                        step['instruction'] = "O'ngga buriling"
-                    else:
-                        step['instruction'] = "Orqaga buriling"
+                    step['instruction'] = f"Liftda {direction} chiqing"
+                continue
+
+            # Yo'nalishni hisoblash
+            angle1 = math.atan2(step['y'] - prev_step['y'], step['x'] - prev_step['x'])
+            angle2 = math.atan2(next_step['y'] - step['y'], next_step['x'] - step['x'])
+            angle_diff = math.degrees(angle2 - angle1) % 360
+
+            if angle_diff < 45 or angle_diff > 315:
+                instruction = "To'g'ri davom eting"
+            elif 45 <= angle_diff < 135:
+                instruction = "Chapga buriling"
+            elif 225 < angle_diff <= 315:
+                instruction = "O'ngga buriling"
+            else:
+                instruction = "Orqaga buriling"
+
+            # Qavatlararo o'tishdan keyin koridorga chiqishni ko'rsatish
+            if prev_step['type'] in ['stairs', 'elevator'] and i >= 2:
+                prev_prev = path[i-2]
+                if prev_prev['floor_id'] != prev_step['floor_id']:
+                    if instruction == "To'g'ri davom eting":
+                        instruction = "Kalidorga chiqib to'g'ri davom eting"
+                    elif instruction == "O'ngga buriling":
+                        instruction = "Kalidorga chiqib o'ngga buriling"
+                    elif instruction == "Chapga buriling":
+                        instruction = "Kalidorga chiqib chapga buriling"
+
+            step['instruction'] = instruction
         
+        # Ketma-ket takrorlangan "To'g'ri davom eting"larni qisqartirish
+        last_instruction = None
+        for step in path:
+            instr = step.get('instruction')
+            if instr == "To'g'ri davom eting" and instr == last_instruction:
+                step['instruction'] = None
+            elif instr:
+                last_instruction = instr
+
         return path
     
     def find_nearest_waypoint_to_room(self, room_id: int) -> Optional[str]:

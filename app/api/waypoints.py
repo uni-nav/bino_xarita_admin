@@ -1,6 +1,7 @@
 
 # app/api/waypoints.py
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
@@ -44,7 +45,7 @@ def create_waypoint(
     _get_floor_or_404(db, waypoint.floor_id)
     if waypoint.connects_to_floor:
         _get_floor_or_404(db, waypoint.connects_to_floor)
-    db_waypoint = Waypoint(**waypoint.dict())
+    db_waypoint = Waypoint(**waypoint.model_dump())
     db.add(db_waypoint)
     db.commit()
     db.refresh(db_waypoint)
@@ -63,7 +64,7 @@ def create_waypoints_batch(
     for wp in waypoints:
         if wp.connects_to_floor:
             _get_floor_or_404(db, wp.connects_to_floor)
-    db_waypoints = [Waypoint(**wp.dict()) for wp in waypoints]
+    db_waypoints = [Waypoint(**wp.model_dump()) for wp in waypoints]
     db.add_all(db_waypoints)
     db.commit()
     for wp in db_waypoints:
@@ -84,7 +85,7 @@ def update_waypoint(
     if waypoint.connects_to_floor:
         _get_floor_or_404(db, waypoint.connects_to_floor)
     
-    for key, value in waypoint.dict(exclude_unset=True).items():
+    for key, value in waypoint.model_dump(exclude_unset=True).items():
         setattr(db_waypoint, key, value)
     
     db.commit()
@@ -115,7 +116,7 @@ def create_connection(
 ):
     """Bog'lanish yaratish"""
     # Agar frontend ID yubormasa, o'zimiz yaratamiz
-    connection_data = connection.dict()
+    connection_data = connection.model_dump()
     if not connection_data.get('id'):
         connection_data['id'] = str(uuid.uuid4())[:8] # Qisqa ID yaratish
         
@@ -134,7 +135,7 @@ def create_connections_batch(
     """Ko'p bog'lanishlarni bir vaqtda yaratish"""
     db_connections = []
     for conn in connections:
-        conn_data = conn.dict()
+        conn_data = conn.model_dump()
         if not conn_data.get('id'):
             conn_data['id'] = str(uuid.uuid4())[:8]
         db_connections.append(Connection(**conn_data))
@@ -147,9 +148,13 @@ def create_connections_batch(
 @router.get("/connections/floor/{floor_id}", response_model=List[ConnectionSchema])
 def get_connections_by_floor(floor_id: int, db: Session = Depends(get_db)):
     """Qavat bo'yicha bog'lanishlarni olish"""
-    connections = db.query(Connection).join(
-        Waypoint, Connection.from_waypoint_id == Waypoint.id
-    ).filter(Waypoint.floor_id == floor_id).all()
+    floor_waypoint_ids = db.query(Waypoint.id).filter(Waypoint.floor_id == floor_id)
+    connections = db.query(Connection).filter(
+        or_(
+            Connection.from_waypoint_id.in_(floor_waypoint_ids),
+            Connection.to_waypoint_id.in_(floor_waypoint_ids),
+        )
+    ).all()
     return connections
 
 @router.delete("/connections/{connection_id}")

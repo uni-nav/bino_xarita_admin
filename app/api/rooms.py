@@ -5,6 +5,7 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.room import Room
 from app.models.floor import Floor
+from app.models.waypoint import Waypoint
 from app.schemas.room import Room as RoomSchema, RoomCreate, RoomUpdate
 from app.utils.room_parser import parse_room_name
 from app.core.auth import verify_admin_token  # ✅ Admin auth
@@ -124,7 +125,7 @@ def update_room(
     if not db_room:
         raise HTTPException(status_code=404, detail="Room not found")
     
-    update_data = room.dict(exclude_unset=True)
+    update_data = room.model_dump(exclude_unset=True)
     
     # Agar name yangilansa, floor_id ni ham yangilash
     if 'name' in update_data:
@@ -137,6 +138,16 @@ def update_room(
                 update_data['floor_id'] = floor.id
     if 'floor_id' in update_data and update_data['floor_id'] is not None:
         _get_floor_or_404(db, update_data['floor_id'])
+
+    if 'waypoint_id' in update_data and update_data['waypoint_id'] is not None:
+        waypoint = db.query(Waypoint).filter(Waypoint.id == update_data['waypoint_id']).first()
+        if not waypoint:
+            raise HTTPException(status_code=404, detail="Waypoint not found")
+        target_floor_id = update_data.get('floor_id', db_room.floor_id)
+        if target_floor_id and waypoint.floor_id != target_floor_id:
+            raise HTTPException(status_code=400, detail="Waypoint does not belong to the room floor")
+        if target_floor_id is None:
+            update_data['floor_id'] = waypoint.floor_id
     
     for key, value in update_data.items():
         setattr(db_room, key, value)
@@ -149,8 +160,6 @@ def update_room(
 def assign_waypoint_to_room(
     room_id: int = Path(..., gt=0),
     waypoint_id: str = Query(..., min_length=1),
-    room_id: int = Path(..., gt=0),
-    waypoint_id: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
     _token: str = Depends(verify_admin_token)
 ):
@@ -158,6 +167,14 @@ def assign_waypoint_to_room(
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
+
+    waypoint = db.query(Waypoint).filter(Waypoint.id == waypoint_id).first()
+    if not waypoint:
+        raise HTTPException(status_code=404, detail="Waypoint not found")
+    if room.floor_id and waypoint.floor_id != room.floor_id:
+        raise HTTPException(status_code=400, detail="Waypoint does not belong to the room floor")
+    if room.floor_id is None:
+        room.floor_id = waypoint.floor_id
     
     room.waypoint_id = waypoint_id
     db.commit()

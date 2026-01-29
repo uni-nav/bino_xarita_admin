@@ -1,7 +1,7 @@
 
 
 # app/schemas/waypoint.py
-from pydantic import BaseModel, conint
+from pydantic import BaseModel, ConfigDict, conint
 from typing import Optional
 from app.models.waypoint import WaypointType
 
@@ -32,5 +32,4 @@ class Waypoint(WaypointBase):
     id: str
     floor_id: PositiveInt
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

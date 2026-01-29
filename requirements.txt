@@ -20,3 +20,14 @@ starlette==0.50.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.40.0
+gunicorn==23.0.0
+
+# Security dependencies
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# Testing dependencies
+httpx==0.28.1
+pytest-cov==4.1.0
+prometheus-fastapi-instrumentator==7.0.0
