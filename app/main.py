@@ -26,9 +26,12 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down University Navigation API...")
 
 app = FastAPI(
-    title="University Navigation API", 
+    title="University Navigation API",
     version="1.0.0",
-    lifespan=lifespan
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # CORS - configured origins only (no wildcard)
@@ -51,6 +54,21 @@ app.include_router(waypoints.router, prefix="/api/waypoints", tags=["waypoints"]
 app.include_router(navigation.router, prefix="/api/navigation", tags=["navigation"])
 app.include_router(rooms.router, prefix="/api/rooms", tags=["rooms"])
 app.include_router(kiosks.router, prefix="/api/kiosks", tags=["kiosks"])
+
+# Docs aliases under /api
+from fastapi.responses import RedirectResponse
+
+@app.get("/api/docs", include_in_schema=False)
+def docs_alias():
+    return RedirectResponse(url="/docs")
+
+@app.get("/api/redoc", include_in_schema=False)
+def redoc_alias():
+    return RedirectResponse(url="/redoc")
+
+@app.get("/api/openapi.json", include_in_schema=False)
+def openapi_alias():
+    return app.openapi()
 
 @app.get("/")
 def root():
