@@ -13,7 +13,7 @@ class WaypointBase(BaseModel):
     y: NonNegativeInt
     type: WaypointType
     label: Optional[str] = None
-    connects_to_floor: Optional[PositiveInt] = None
+    connects_to_floor: Optional[NonNegativeInt] = None
     connects_to_waypoint: Optional[str] = None
 
 class WaypointCreate(WaypointBase):
@@ -25,7 +25,7 @@ class WaypointUpdate(BaseModel):
     y: Optional[NonNegativeInt] = None
     type: Optional[WaypointType] = None
     label: Optional[str] = None
-    connects_to_floor: Optional[PositiveInt] = None
+    connects_to_floor: Optional[NonNegativeInt] = None
     connects_to_waypoint: Optional[str] = None
 
 class Waypoint(WaypointBase):

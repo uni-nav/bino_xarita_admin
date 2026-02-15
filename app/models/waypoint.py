@@ -16,7 +16,7 @@ class Waypoint(Base):
     __tablename__ = "waypoints"
     
     id = Column(String(50), primary_key=True, index=True)
-    floor_id = Column(Integer, ForeignKey("floors.id", ondelete="CASCADE"), nullable=False)
+    floor_id = Column(Integer, ForeignKey("floors.id", ondelete="CASCADE"), nullable=False, index=True)
     x = Column(Integer, nullable=False)
     y = Column(Integer, nullable=False)
     type = Column(SQLEnum(WaypointType), nullable=False)

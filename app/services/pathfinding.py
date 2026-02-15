@@ -26,58 +26,100 @@ class PathNode:
     def __eq__(self, other):
         return self.waypoint_id == other.waypoint_id
 
-class PathFinder:
-    """A* algoritmi bilan yo'l topish"""
+    def __hash__(self):
+        return hash(self.waypoint_id)
+
+class GraphCache:
+    """
+    Singleton for caching the navigation graph.
+    Stores pre-computed graph and waypoint data to avoid DB hits on every request.
+    """
+    _instance = None
     
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self):
         self.graph: Optional[Dict[str, List[Tuple[str, float]]]] = None
         self.waypoints_dict: Dict[str, Waypoint] = {}
         self.floor_number_by_id: Dict[int, int] = {}
+        self.initialized = False
 
-    def build_graph(self):
-        """Grafni qurish - barcha waypoints va connections"""
-        if self.graph is not None:
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = GraphCache()
+        return cls._instance
+
+    def clear(self):
+        """Force reload on next request"""
+        self.initialized = False
+        self.graph = None
+        self.waypoints_dict = {}
+        self.floor_number_by_id = {}
+
+    def load_graph(self, db: Session):
+        """
+        Load graph from DB if not already loaded.
+        """
+        if self.initialized and self.graph is not None:
             return
 
-        # Floor order should be based on floor_number (not DB primary key).
+        # Double-check locking could be added here for thread safety in high-concurrency,
+        # but for this scale, simple check is sufficient as Python GIL protects dict ops.
+        
+        # Floor order mapping
         self.floor_number_by_id = {
             cast(int, fid): cast(int, fnum)
-            for fid, fnum in self.db.query(Floor.id, Floor.floor_number).all()
+            for fid, fnum in db.query(Floor.id, Floor.floor_number).all()
         }
         
-        # Barcha waypoints va connections ni olish
-        waypoints = self.db.query(Waypoint).all()
-        connections = self.db.query(Connection).all()
+        # Fetch all data once
+        waypoints = db.query(Waypoint).all()
+        connections = db.query(Connection).all()
         
-        # Graph yaratish: {waypoint_id: [(neighbor_id, distance), ...]}
-        self.graph = {cast(str, wp.id): [] for wp in waypoints}
-        self.waypoints_dict = {cast(str, wp.id): wp for wp in waypoints}
+        # Initialize containers
+        graph = {cast(str, wp.id): [] for wp in waypoints}
+        waypoints_dict = {cast(str, wp.id): wp for wp in waypoints}
         
-        # Bog'lanishlarni qo'shish (ikki tomonlama)
+        # Build edges
         for conn in connections:
             from_id = cast(str, conn.from_waypoint_id)
             to_id = cast(str, conn.to_waypoint_id)
-            if from_id not in self.graph or to_id not in self.graph:
-                # Skip invalid links to avoid KeyError
+            if from_id not in graph or to_id not in graph:
                 continue
-            self.graph[from_id].append((to_id, float(conn.distance)))
-            self.graph[to_id].append((from_id, float(conn.distance)))
+            graph[from_id].append((to_id, float(conn.distance)))
+            graph[to_id].append((from_id, float(conn.distance)))
         
-        # Zinalar va liftlar uchun qavat o'tishlarini qo'shish
+        # Vertical connections (Elevators/Stairs)
         for wp in waypoints:
             if wp.type in [WaypointType.STAIRS, WaypointType.ELEVATOR]:
                 connects_to = cast(Optional[str], wp.connects_to_waypoint)
-                if connects_to:
-                    if connects_to not in self.graph:
-                        continue
-                    # Qavat o'tish - qo'shimcha vaqt/masofa
+                if connects_to and connects_to in graph:
                     floor_change_cost = 50 if wp.type == WaypointType.STAIRS else 30
                     wp_id = cast(str, wp.id)
-                    self.graph[wp_id].append((connects_to, floor_change_cost))
-                    # Legacy linklarni ham ikki tomonlama deb hisoblaymiz
-                    if connects_to in self.graph:
-                        self.graph[connects_to].append((wp_id, floor_change_cost))
+                    graph[wp_id].append((connects_to, floor_change_cost))
+                    # Assuming bidirectional logic for vertical links
+                    if connects_to in graph:
+                        graph[connects_to].append((wp_id, floor_change_cost))
+        
+        self.graph = graph
+        self.waypoints_dict = waypoints_dict
+        self.initialized = True
+
+class PathFinder:
+    """A* algoritmi bilan yo'l topish (using cached graph)"""
+    
+    def __init__(self, db: Session):
+        self.db = db
+        self.cache = GraphCache.get_instance()
+        # Ensure cache is loaded
+        self.cache.load_graph(db)
+        # Shortcuts for cleaner code
+        self.graph = self.cache.graph
+        self.waypoints_dict = self.cache.waypoints_dict
+        self.floor_number_by_id = self.cache.floor_number_by_id
+
+    def build_graph(self):
+        """Deprecated: Graph is now built via singleton cache on init"""
+        pass
 
     def _floor_number(self, floor_id: int) -> int:
         """

@@ -12,17 +12,16 @@ from alembic import context
 
 # 1. Loyihangizdagi Base va modellarni import qiling
 from app.database import Base
-from app.models.floor import Floor
-from app.models.waypoint import Waypoint
-from app.models.connection import Connection
-from app.models.room import Room
-from app.models.kiosk import Kiosk
+from app.models import * # Import all models to ensure they are registered
 from app.core.config import settings
 
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# Overwrite sqlalchemy.url with the one from our settings
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -55,11 +54,17 @@ def run_migrations_offline() -> None:
     """
     # Always prefer DATABASE_URL from app settings
     url = settings.DATABASE_URL
+    def include_object(object, name, type_, reflected, compare_to):
+        if type_ == "table" and reflected and name not in target_metadata.tables:
+            return False
+        return True
+
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -85,9 +90,16 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
+    def include_object(object, name, type_, reflected, compare_to):
+        if type_ == "table" and reflected and name not in target_metadata.tables:
+            return False
+        return True
+
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, 
+            target_metadata=target_metadata,
+            include_object=include_object
         )
 
         with context.begin_transaction():

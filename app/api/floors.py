@@ -132,6 +132,12 @@ async def upload_floor_image(
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
+    # Allowable extensions
+    ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+    file_ext = os.path.splitext(file.filename or "")[1].lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+         raise HTTPException(status_code=400, detail="Invalid file extension")
+
     # Fayl hajmini tekshirish (MB)
     max_bytes = settings.MAX_UPLOAD_MB * 1024 * 1024
     try:
@@ -182,7 +188,7 @@ async def upload_floor_image(
         raise HTTPException(status_code=500, detail="Failed to process image")
     
     # Database yangilash
-    db_floor.image_url = f"/uploads/{filename}" # type: ignore
+    db_floor.image_url = f"/api/uploads/{filename}" # type: ignore
     db_floor.image_width = width # type: ignore
     db_floor.image_height = height # type: ignore
     db.commit()

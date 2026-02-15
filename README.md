@@ -74,25 +74,68 @@ Authorization: Bearer <ADMIN_TOKEN>
 
 JWT login: `/api/auth/login`
 
-## Asosiy komandalar
+## Asosiy komandalar (Docker Compose)
+
+### Ishga tushirish
 
 ```bash
-make dev        # Development (attached)
-make dev-d      # Development (detached)
-make prod       # Production
-make stop       # To'xtatish
-make migrate    # Database migrations
-make test       # Testlarni ishlatish
-make logs       # Loglarni ko'rish
-make backup-db  # Database backup
-make help       # Barcha komandalar
+# Development (loglarni ko'rish uchun)
+docker compose up --build
+
+# Development (orqa fonda / detached)
+docker compose up --build -d
+
+# To'xtatish
+docker compose down
 ```
 
-## Troubleshooting
+### Loglarni ko'rish
 
-DB xatolari (Docker volume eski bo'lsa):
 ```bash
-make reset-db
-make dev-d
-make migrate
+# Hamma loglar
+docker compose logs -f
+
+# Faqat API loglari
+docker compose logs -f api
+
+# Faqat DB loglari
+docker compose logs -f db
 ```
+
+### Database Migrations (Alembic)
+
+```bash
+docker compose exec -T api alembic upgrade head
+```
+
+### Database Backup & Restore
+
+```bash
+# Backup olish (backups papkasiga)
+mkdir -p backups
+docker compose exec -T db sh -lc 'pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' > backups/db_backup.sql
+
+# Restore qilish (backups/db_backup.sql faylidan)
+cat backups/db_backup.sql | docker compose exec -T db sh -lc 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+```
+
+### Testlarni ishlatish
+
+```bash
+docker compose exec -T api python -m pytest
+```
+
+### API Health Check (Internal)
+
+API faqat ichki tarmoqda bo'lgani uchun, tekshirish quyidagicha:
+
+```bash
+docker compose exec -T api curl -s http://localhost:8000/api/health
+```
+
+### Ma'lumotlarni tozalash (Reset DB)
+
+```bash
+docker compose down -v
+```
+

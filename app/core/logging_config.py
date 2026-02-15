@@ -22,7 +22,6 @@ def setup_logging():
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
     # If DEBUG is on, set lower level
-    # Note: settings doesn't have DEBUG yet, adding basic check or safe default
-    # If you add DEBUG to settings, use it here:
-    # if settings.DEBUG:
-    #     logging.getLogger("app").setLevel(logging.DEBUG)
+    if settings.DEBUG:
+        logging.getLogger("app").setLevel(logging.DEBUG)
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)

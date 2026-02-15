@@ -1,3 +1,13 @@
+import pytest
+from app.services.pathfinding import GraphCache
+
+@pytest.fixture(autouse=True)
+def clear_graph_cache():
+    """Clear GraphCache before and after each test to ensure isolation"""
+    GraphCache.get_instance().clear()
+    yield
+    GraphCache.get_instance().clear()
+
 def create_floor(client, headers, floor_number=1, name="1-qavat"):
     resp = client.post(
         "/api/floors/",

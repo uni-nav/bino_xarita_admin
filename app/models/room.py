@@ -14,7 +14,7 @@ class Room(Base):
     
     # Yangi ustunlar (migration kerak)
     waypoint_id = Column(String(50), ForeignKey("waypoints.id", ondelete="SET NULL"), nullable=True)
-    floor_id = Column(Integer, ForeignKey("floors.id", ondelete="SET NULL"), nullable=True)
+    floor_id = Column(Integer, ForeignKey("floors.id", ondelete="SET NULL"), nullable=True, index=True)
     
     # Relationships
     floor = relationship("Floor", back_populates="rooms")

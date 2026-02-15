@@ -84,23 +84,26 @@ def get_nearby_rooms(waypoint_id: str, radius: int = 100, db: Session = Depends(
     if not waypoint:
         raise HTTPException(status_code=404, detail="Waypoint not found")
     
-    # Bir xil qavatdagi barcha xonalar
-    rooms = db.query(Room).filter(Room.floor_id == waypoint.floor_id).all()
+    # Bir xil qavatdagi barcha xonalar va ularning waypointlarini olish (JOIN)
+    # N+1 query muammosini oldini olish
+    rooms_data = (
+        db.query(Room, Waypoint)
+        .join(Waypoint, Room.waypoint_id == Waypoint.id)
+        .filter(Room.floor_id == waypoint.floor_id)
+        .all()
+    )
     
     nearby = []
-    for room in rooms:
-        if room.waypoint_id:
-            room_wp = db.query(Waypoint).filter(Waypoint.id == room.waypoint_id).first()
-            if room_wp:
-                distance = math.sqrt(
-                    (room_wp.x - waypoint.x)**2 + (room_wp.y - waypoint.y)**2
-                )
-                if distance <= radius:
-                    nearby.append({
-                        'room_id': room.id,
-                        'name': room.name,
-                        'distance': distance
-                    })
+    for room, room_wp in rooms_data:
+        distance = math.sqrt(
+            (room_wp.x - waypoint.x)**2 + (room_wp.y - waypoint.y)**2
+        )
+        if distance <= radius:
+            nearby.append({
+                'room_id': room.id,
+                'name': room.name,
+                'distance': distance
+            })
     
     return nearby
 

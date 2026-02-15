@@ -1,20 +1,26 @@
 
 
 # app/main.py
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+import logging
 import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Depends, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from prometheus_fastapi_instrumentator import Instrumentator
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.api import floors, waypoints, navigation, rooms, kiosks, auth
 from app.core.config import settings
-from fastapi.responses import JSONResponse
 from app.core.logging_config import setup_logging
-import logging
+from app.database import get_db
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
-from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,9 +34,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="University Navigation API",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
 
@@ -45,7 +51,7 @@ app.add_middleware(
 
 # Uploads papkani yaratish
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+app.mount("/api/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 # API routes
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
@@ -55,36 +61,15 @@ app.include_router(navigation.router, prefix="/api/navigation", tags=["navigatio
 app.include_router(rooms.router, prefix="/api/rooms", tags=["rooms"])
 app.include_router(kiosks.router, prefix="/api/kiosks", tags=["kiosks"])
 
-# Docs aliases under /api
-from fastapi.responses import RedirectResponse
-
-@app.get("/api/docs", include_in_schema=False)
-def docs_alias():
-    return RedirectResponse(url="/docs")
-
-@app.get("/api/redoc", include_in_schema=False)
-def redoc_alias():
-    return RedirectResponse(url="/redoc")
-
-@app.get("/api/openapi.json", include_in_schema=False)
-def openapi_alias():
-    return app.openapi()
-
-@app.get("/")
+@app.get("/api")
 def root():
     return {"message": "University Navigation API", "version": "1.0.0"}
 
 # Prometheus Metrics
-from prometheus_fastapi_instrumentator import Instrumentator
-
 instrumentator = Instrumentator().instrument(app)
 
-from sqlalchemy import text
-from app.database import get_db
-from sqlalchemy.orm import Session
-from fastapi import Depends, status
 
-@app.get("/health")
+@app.get("/api/health")
 def health_check(db: Session = Depends(get_db)):
     """
     Health check endpoint that verifies database connectivity

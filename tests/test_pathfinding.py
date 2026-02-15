@@ -1,6 +1,14 @@
 import pytest
-from app.services.pathfinding import PathFinder
+from app.services.pathfinding import PathFinder, GraphCache
 from app.models.waypoint import Waypoint, WaypointType
+
+@pytest.fixture(autouse=True)
+def clear_graph_cache():
+    """Clear GraphCache before and after each test to ensure isolation"""
+    GraphCache.get_instance().clear()
+    yield
+    GraphCache.get_instance().clear()
+
 from app.models.connection import Connection
 from app.models.floor import Floor
 from app.models.room import Room

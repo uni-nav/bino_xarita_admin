@@ -1,13 +1,6 @@
-# docker-compose.yml - Universal Configuration (Dev + Production)
-# ================================================================
-# Ishlatish:
-#   Development: make dev
-#   Production:  make prod
-# ================================================================
-
 services:
   db:
-    image: postgis/postgis:15-3.3
+    image: postgis/postgis:16-3.4-alpine
     platform: linux/amd64
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
@@ -18,10 +11,8 @@ services:
     mem_reservation: ${DB_MEM_RESERVATION:-256m}
     pids_limit: ${DB_PIDS_LIMIT:-200}
     shm_size: ${DB_SHM_SIZE:-256m}
-    ports:
-      - "${DB_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_alpine:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}" ]
       interval: 10s
@@ -38,17 +29,16 @@ services:
 
   api:
     build: .
-    command: ${API_COMMAND:-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload}
+    command: ${API_COMMAND:-/opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload}
     init: true
     security_opt:
       - no-new-privileges:true
-    user: ${API_USER:-root}
     volumes:
       - .:/app
       - ./uploads:/app/uploads
-    ports:
-      - "${API_PORT:-8000}:8000"
+
     environment:
+      # Docker ichida DB_HOST=db bo'lishi kerak (override)
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-university_nav}
       DB_HOST: db
       DB_PORT: 5432
@@ -65,7 +55,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()" ]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2).read()" ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -76,56 +66,8 @@ services:
         max-size: "${LOG_MAX_SIZE:-10m}"
         max-file: "${LOG_MAX_FILE:-3}"
 
-  frontend:
-    build:
-      context: ../${FRONTEND_DIR:-campus-navigator-1}
-      target: ${FRONTEND_TARGET:-dev}
-      args:
-        VITE_API_URL: ${FRONTEND_API_URL:-http://localhost:8000}
-        VITE_APP_NAME: ${FRONTEND_APP_NAME:-Universitet Navigatsiya Tizimi}
-        VITE_ENV: ${FRONTEND_ENV:-development}
-        VITE_ENABLE_DEBUG: ${FRONTEND_ENABLE_DEBUG:-true}
-        VITE_STORAGE_KEY: ${FRONTEND_STORAGE_KEY:-change-this-to-random-string-in-production}
-    command: ${FRONTEND_COMMAND:-npm run dev -- --host 0.0.0.0 --port 8080}
-    init: true
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      VITE_API_URL: ${FRONTEND_API_URL:-http://localhost:8000}
-      VITE_APP_NAME: ${FRONTEND_APP_NAME:-Universitet Navigatsiya Tizimi}
-      VITE_ENV: ${FRONTEND_ENV:-development}
-      VITE_ENABLE_DEBUG: ${FRONTEND_ENABLE_DEBUG:-true}
-      CHOKIDAR_USEPOLLING: ${FRONTEND_USE_POLLING:-false}
-    volumes:
-      - ../${FRONTEND_DIR:-campus-navigator-1}:/app
-      - /app/node_modules
-    ports:
-      - "${FRONTEND_PORT:-8080}:${FRONTEND_INTERNAL_PORT:-8080}"
-    cpus: ${FRONTEND_CPUS:-1.0}
-    mem_limit: ${FRONTEND_MEM_LIMIT:-768m}
-    mem_reservation: ${FRONTEND_MEM_RESERVATION:-128m}
-    pids_limit: ${FRONTEND_PIDS_LIMIT:-250}
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
-    stop_grace_period: 20s
-    networks:
-      - app_network
-    healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:${FRONTEND_INTERNAL_PORT:-8080}/" ]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    logging:
-      driver: json-file
-      options:
-        max-size: "${LOG_MAX_SIZE:-10m}"
-        max-file: "${LOG_MAX_FILE:-3}"
-
 volumes:
-  postgres_data:
+  postgres_data_alpine:
 
 
 networks:

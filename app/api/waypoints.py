@@ -147,7 +147,7 @@ def create_connection(
     # Agar frontend ID yubormasa, o'zimiz yaratamiz
     connection_data = connection.model_dump()
     if not connection_data.get('id'):
-        connection_data['id'] = str(uuid.uuid4())[:8] # Qisqa ID yaratish
+        connection_data['id'] = str(uuid.uuid4())[:12] # Qisqa ID yaratish (12 belgi)
         
     db_connection = Connection(**connection_data)
     db.add(db_connection)
@@ -178,7 +178,7 @@ def create_connections_batch(
     for conn in connections:
         conn_data = conn.model_dump()
         if not conn_data.get('id'):
-            conn_data['id'] = str(uuid.uuid4())[:8]
+            conn_data['id'] = str(uuid.uuid4())[:12]
         db_connections.append(Connection(**conn_data))
     db.add_all(db_connections)
     db.commit()
